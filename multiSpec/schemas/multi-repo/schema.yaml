@@ -1,0 +1,146 @@
+name: multi-repo
+version: 1
+description: 多仓工作流 - proposal + specs + requirement-design（story-design）；主仓无 tasks，实施任务在子仓
+artifacts:
+  - id: proposal
+    generates: requirement-proposal.md
+    description: Initial proposal document outlining the change
+    template: proposal.md
+    instruction: |
+      Create the proposal document that establishes WHY this change is needed.
+
+      Sections:
+      - **Why**: 1-2 sentences on the problem or opportunity. What problem does this solve? Why now?
+      - **What Changes**: Bullet list of changes. Be specific about new capabilities, modifications, or removals. Mark breaking changes with **BREAKING**.
+      - **Capabilities**: Identify which specs will be created or modified:
+        - **New Capabilities**: List capabilities being introduced. Each becomes a new `specs/<name>/spec.md`. Use kebab-case names (e.g., `user-auth`, `data-export`).
+        - **Modified Capabilities**: List existing capabilities whose REQUIREMENTS are changing. Only include if spec-level behavior changes (not just implementation details). Each needs a delta spec file. Check `msdd/specs/` for existing spec names. Leave empty if no requirement changes.
+      - **Impact**: Affected sub-repos (list sub-repos under codebase/), cross-repo interfaces, dependencies, or systems.
+
+      IMPORTANT: The Capabilities section is critical. It creates the contract between
+      proposal and specs phases. Research existing specs before filling this in.
+      Each capability listed here will need a corresponding spec file.
+
+      Every change must either declare at least one capability (new or
+      modified) or explicitly opt out of specs: `msdd validate` rejects a
+      change with zero deltas unless the change's `.msdd.yaml` sets
+      `skip_specs: true`. Use `skip_specs: true` only when no spec-level
+      behavior changes (pure refactor, tooling, docs) - specs describe
+      behavior, so if behavior does not change, no spec should change either.
+      Do not invent a requirement just to satisfy validation.
+
+      Keep it concise (1-2 pages). Focus on the "why" not the "how" -
+      detailed implementation belongs in the sub-repos' story-design/story-task.
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: 全局/跨仓行为契约 delta
+    template: spec.md
+    instruction: |
+      创建规格 delta 文件（specs/<capability>/spec.md），定义系统应做什么（WHAT）。
+      主仓 specs 的定位：全局/跨仓行为契约（需求 PRD 的规格层，全部在主仓维护）。
+      - 描述跨仓可见的行为与子仓间接口需求（端点、字段、协议、事件、错误行为等约束）
+      - 不描述单个子仓内部的实现细节（那是子仓 story-design/story-task 的职责）
+
+      delta 格式与默认 spec-driven 完全一致（保证 msdd validate / archive 兼容）：
+
+      delta 操作（用 ## 标题）：
+      - **ADDED Requirements**: 新增能力
+      - **MODIFIED Requirements**: 行为变更 - 必须包含完整更新后的内容
+      - **REMOVED Requirements**: 废弃功能 - 必须包含 **Reason** 和 **Migration**
+      - **RENAMED Requirements**: 仅改名 - 使用 FROM:/TO: 格式
+
+      格式要求：
+      - 每条需求：`### Requirement: <name>` + 描述
+      - 规范性表述用 SHALL/MUST（避免 should/may）
+      - 每个场景：`#### Scenario: <name>`，WHEN/THEN 格式
+      - **关键**：场景标题必须恰好 4 个 #（####），3 个 # 或列表会静默校验失败
+      - 每条需求至少一个场景
+      新增 capability 的 delta 以 `## Purpose` 开头（一两句话，10+ 字符，说明该能力用途）。
+      已有 capability 的 delta 不要加 `## Purpose`。
+      MODIFIED 流程：从 msdd/specs/<capability>/spec.md 复制完整需求块到
+      ## MODIFIED Requirements 下再修改；标题文本必须与原文一致（空白不敏感）。
+      只新增关注点而不改既有行为时，用 ADDED 而非 MODIFIED。
+      按 requirement-proposal.md 的 Capabilities 章节逐个创建 specs/<capability>/spec.md。
+      proposal 未列 capability 且未设 skip_specs 时，先回退 proposal。
+    requires:
+      - proposal
+
+  - id: design
+    generates: requirement-design.md
+    description: story-design - 多仓拆分设计（主仓最终产物，无 tasks）
+    template: design.md
+    instruction: |
+      创建 story-design 文档（requirement-design.md）：把需求拆分为各子仓的 story。
+      这是主仓的最终产物，本 schema 不产生 tasks——所有实施任务在子仓进行。
+      ## 硬性边界
+      - 禁止代码级设计：函数签名、目录结构、文件组织、框架选型细节 → 属于子仓 story-design.md
+      - 接口契约只写契约级：端点、字段、协议、事件、状态码；不写实现
+      - 仅为本次需求涉及的子仓写 story 章节；不涉及的仓不写
+      - 设计深度标准：子仓拿到 story 能独立开工
+      ## 章节说明
+      - **跨仓总览**: 需求在各仓的分工——各仓职责、依赖方向、协作方式。可引用 proposal 的 Impact。
+      - **接口契约**: 子仓间约定（仅契约级）。无跨仓接口时写"无"。
+      - **Story: <子仓名>**（每个涉及仓一节）:
+        - 目标: 该仓要达成什么（对应 proposal 的 What Changes 子集）
+        - 范围: 做什么、不做什么
+        - 依赖与接口: 依赖哪些仓、被哪些仓依赖、涉及「接口契约」中的哪些条目
+        - 验收要点: 行为级验收标准，与主仓 specs/ 的 Requirement 对应
+        - 子仓 change: apply 阶段回填子仓 msdd change 名，先留空
+      - **风险 / 待定问题**: 已知风险 [风险] 的缓解；真正可延后的问题才放这里
+      当前子仓：请根据实际项目配置子仓列表（如 codebase/ 下的各子仓目录）。
+      新增子仓时按同格式增加 story 章节。
+    requires:
+      - proposal
+      - specs
+
+  - id: test-design
+    generates: requirement-test-design.md
+    description: 测试用例设计（测试策略与维度设计，不含具体用例内容；由 /opsx-test 生成）
+    template: test-design.md
+    instruction: |
+      创建测试用例设计文档（requirement-test-design.md）：基于 requirement-proposal.md、
+      specs/ 和 requirement-design.md，规划怎么测。本文件不写具体用例内容——
+      具体用例（步骤、期望值）由子仓 story-test.md 承载，由 /opsx-test 生成。
+      ## 硬性边界
+      - 禁止写具体用例：不写测试步骤、期望结果、用例表格
+      - 测试点设计到"测什么、从哪个角度"即可，不展开执行步骤
+      - 以 specs/ 的 Requirement 和 Scenario、requirement-design.md 的验收要点为依据
+
+      ## 章节说明
+      - **测试范围**: 本次需求要测的功能/接口清单（对照 proposal 的 What Changes 的 specs/
+        capability），并明确不测什么
+      - **测试维度**: 功能/接口/异常/边界/安全/性能等维度划分；每个维度列出测试点设计
+        （只到测试点，不到用例），测试点需标注关联的 Requirement
+      - **子仓测试职责**: 测试点如何拆分到各子仓（与 requirement-design.md 的 story 一一对应），
+        每个 story 一个小节列出分配给该仓的测试点
+      - **环境与数据**: 测试环境、账号、数据准备要求；无特殊要求写"无"
+      - **风险**: 测试盲区、外部依赖、联测依赖等；无则删除本章节
+
+      注意：test-design 不在 /opsx-propose 的必产物链中（apply.requires 仍为 design），
+      由 /opsx-test 单独驱动；不涉及测试的需求可不生成本文件。
+    requires:
+      - specs
+      - design
+
+apply:
+  requires: [design]
+  tracks: requirement-design.md
+  instruction: |
+    按 requirement-design.md 的 story 拆分，把需求落地到各子仓。主仓不产生 tasks。
+    1. 读取 requirement-design.md 的跨仓总览与各 story 章节
+    2. 逐子仓处理：
+       a. 子仓目录无 msdd/ 时，在该子仓目录执行 msdd init
+       b. 将主仓 msdd/schemas/story-driven/ 整体拷贝到 <子仓>/msdd/schemas/story-driven/（若不存在）
+       c. 将子仓 msdd/config.yaml 的 schema 设为 story-driven
+        d. 在子仓目录执行 msdd new change <主仓change名>-<子仓名kebab> --schema story-driven
+           （例：主仓 change 为 add-user-auth，子仓 my-app 的子 change 为 add-user-auth-my-app）
+       e. 在子仓 change 的 .msdd.yaml 中设置 skip_specs: true（子仓不写 delta specs，
+          行为契约统一维护在主仓 specs/；否则 validate 以零 delta 拒绝）
+       f. 子仓 change 的 proposal/specs：需求与 PRD 来自主仓。在子仓 story-design.md 开头
+          引用主仓 story（原始需求摘要、目标、范围、验收要点）作为需求输入，
+          再展开该仓的详细功能实现设计
+    3. 每完成一个子仓，将子仓 change 名回填到主仓 requirement-design.md 对应 story 的「子仓 change」小节
+    4. 子仓的后续 story-design / story-task 在子仓内完成；主仓不跟踪子仓任务
+    5. 完成标准：所有涉及子仓均已创建 change 骨架并回填主仓 requirement-design.md

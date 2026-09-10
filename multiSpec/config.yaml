@@ -1,0 +1,12 @@
+schema: multi-repo
+
+context: |
+  本仓为主仓，负责：需求拆分（requirement-design.md，story-design 式分仓拆分）。
+  全局/跨仓行为契约（specs/）、各子仓 change 的登记与回填。业务实施不在主仓进行—
+  主仓 schema 为 multi-repo（requirement-proposal.md、specs/、requirement-design.md，无 tasks），
+  所有实施任务在子仓的 msdd change 中进行（子仓 schema 为 story-driven：
+  proposal.md → specs/ → story-design.md → story-task.md；母版在 msdd/schemas/story-driven/，
+  主仓 apply 初始化子仓时拷入）。
+  子仓（git submodule，路径 codebase/）：
+  请根据实际项目配置子仓列表。
+  子仓间接口约定在主仓 requirement-design.md 的「接口契约」章节维护（仅契约级，不写实现）。

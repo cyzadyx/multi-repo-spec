@@ -1,0 +1,109 @@
+name: story-driven
+version: 1
+description: 子仓工作流 - story-design + story-task（需求与 PRD 全部来自主仓，子仓只做详细实现设计与任务拆分）
+artifacts:
+  - id: design
+    generates: story-design.md
+    description: 详细功能实现设计（需求输入来自主仓 requirement-design.md 的 story）
+    template: design.md
+    instruction: |
+      本仓库无 proposal/specs：需求与 PRD 全部来自主仓（multi-repo 流程）。
+      change 由主仓派生：change 名为 <主仓change名>-<子仓名kebab>。
+      **创建 change 后立即在 .msdd.yaml 中设置 `skip_specs: true`**。
+      子仓不做 delta specs（行为契约统一维护在主仓 specs/），没有该标记
+      msdd validate 会以"零 delta"拒绝 change。
+      story-design 开头先写「需求输入」小节，引用主仓 requirement-design.md 中对应
+      story 的内容（原始需求摘要、目标、范围、验收要点），作为实现设计的依据。
+
+      Create the design document that explains HOW to implement the change.
+
+      story-design.md 为本仓库 change 的必选产物：每个 change 都需要详细功能实现设计。
+      Sections:
+      - **需求输入**: 引用主仓 requirement-design.md 对应 story（原始需求摘要、目标、范围、验收要点）
+      - **Context**: Only the current state and constraints needed to explain the approach. Reference the 需求输入 for motivation instead of restating it.
+      - **Goals / Non-Goals**: What this design achieves and explicitly excludes. Don't restate the story's scope - add only design-level boundaries.
+      - **Decisions**: Key technical choices with rationale (why X over Y?). Include alternatives considered for each decision. 子仓可做代码级设计：模块划分、接口签名、目录结构、技术选型。
+      - **Risks / Trade-offs**: Known limitations, things that could go wrong. Format: [Risk] 的 Mitigation
+      - **Migration Plan**: Steps to deploy, rollback strategy (if applicable)
+      - **Open Questions**: Unknowns that can safely be answered later without
+        changing the approach or the task breakdown. Omit if none.
+
+      Open questions are for genuinely deferrable unknowns, not decisions you
+      skipped. If a question would change the approach or the task breakdown,
+      resolve it now - ask the user instead of guessing.
+
+      Focus on architecture and approach, not line-by-line implementation.
+      Reference the 需求输入 for motivation and requirements - if a section
+      would only restate them, point to them instead.
+
+      Good design docs explain the "why" behind technical decisions.
+    requires: []
+
+  - id: tasks
+    generates: story-task.md
+    description: Implementation checklist with trackable tasks
+    template: tasks.md
+    instruction: |
+      Create the task list that breaks down the implementation work.
+
+      Before writing tasks, check story-design.md for Open Questions. If any of them
+      would change what gets built, resolve them with the user first - do not
+      bake an unstated assumption into the task list.
+
+      **IMPORTANT: Follow the template below exactly.** The apply phase parses
+      checkbox format to track progress. Tasks not using `- [ ]` won't be tracked.
+
+      Guidelines:
+      - Group related tasks under ## numbered headings
+      - Each task MUST be a checkbox: `- [ ] X.Y Task description`
+      - Tasks should be small enough to complete in one session
+      - Order tasks by dependency (what must be done first?)
+      - MUST include a「测试执行」task group: one checkbox task per test-case group
+        from story-test.md (e.g., `- [ ] N.1 执行 <模块> 用例 TC-xx-01 ~ TC-xx-09 并记录结果`).
+        If story-test.md has no cases yet (/opsx-test not run), still create the
+        测试执行 group with tasks referencing story-test.md, and refine them into
+        case-level tasks after cases are generated
+
+      Example:
+      ```
+      ## 1. Setup
+
+      - [ ] 1.1 Create new module structure
+      - [ ] 1.2 Add dependencies to package.json
+
+      ## 2. Core Implementation
+
+      - [ ] 2.1 Implement data export function
+      - [ ] 2.2 Add CSV formatting utilities
+      ```
+
+      Reference story-design.md for what needs to be built and how.
+      Each task should be verifiable - you know when it's done.
+    requires:
+      - design
+
+  - id: story-test
+    generates: story-test.md
+    description: 具体测试用例（依据主仓 requirement-test-design.md 分配给本仓的测试点与 story-design 展开；由 /opsx-test 生成）
+    template: story-test.md
+    instruction: |
+      创建具体测试用例（story-test.md）：把主仓 requirement-test-design.md 中分配给本仓的
+      测试点展开为可直接执行的用例内容。由 /opsx-test 驱动生成。
+      ## 要求
+      - 逐条覆盖主仓 requirement-test-design.md「子仓测试职责」中分配给本仓的全部测试点，
+        每条用例的"来源"列标注其来源测试点/Requirement
+      - 用例内容与 story-design.md 的需求输入、验收要点一致
+      - 用例格式统一：用例编号（TC-<模块>-<序号>）、模块、优先级（P0/P1/P2）、前置条件、
+        步骤、期望结果、来源
+      - 用例为最终内容：可直接执行，不含"待补充"占位
+      - 除主仓分配的测试点外，可补充本仓实现特有的用例，来源标注"补充"
+      - 文末维护「覆盖对照」：主仓测试点 vs 本仓用例编号，确保无遗漏
+    requires:
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: story-task.md
+  instruction: |
+    Read context files, work through pending tasks, mark complete as you go.
+    Pause if you hit blockers or need clarification.
