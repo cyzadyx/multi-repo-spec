@@ -1,0 +1,6 @@
+schema: single-repo
+
+context: |
+  本仓为单仓模式，所有产物在同一仓库中维护。
+  schema 为 single-repo（proposal.md → specs/ → design.md → tasks.md）。
+  适用于单一代码库的项目，无需多仓拆分。

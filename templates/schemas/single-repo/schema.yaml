@@ -1,0 +1,160 @@
+name: single-repo
+version: 1
+description: 单仓工作流 - proposal + specs + design + tasks（所有产物在同一仓库）
+artifacts:
+  - id: proposal
+    generates: proposal.md
+    description: 提案文档，说明变更的原因和内容
+    template: proposal.md
+    instruction: |
+      创建提案文档，说明为什么需要这个变更。
+
+      章节：
+      - **Why**: 1-2 句话描述问题或机会。这个变更解决什么问题？为什么现在需要？
+      - **What Changes**: 变更列表。具体说明新增功能、修改或移除的内容。用 **BREAKING** 标记破坏性变更。
+      - **Capabilities**: 识别哪些 specs 将被创建或修改：
+        - **New Capabilities**: 列出引入的新功能。每个功能对应一个 `specs/<name>/spec.md`。使用 kebab-case 命名（如 `user-auth`、`data-export`）。
+        - **Modified Capabilities**: 列出需求变更的现有功能。仅包含 spec 级别的行为变更（非实现细节）。每个需要一个 delta spec 文件。检查 `msdd/specs/` 获取现有 spec 名称。如无需求变更则留空。
+      - **Impact**: 影响的功能模块、依赖关系或系统。
+
+      重要：Capabilities 章节是关键，它建立了 proposal 和 specs 阶段的契约。
+      在填写前请研究现有 specs。这里列出的每个 capability 都需要对应的 spec 文件。
+
+      每个变更必须声明至少一个 capability（新增或修改），或者明确选择不使用 specs：
+      `msdd validate` 会拒绝零 delta 的变更，除非变更的 `.msdd.yaml` 设置了
+      `skip_specs: true`。仅在没有 spec 级别行为变更时使用 `skip_specs: true`（纯重构、工具、文档）-
+      specs 描述行为，如果行为没有改变，spec 也不应该改变。不要为了满足验证而发明需求。
+
+      保持简洁（1-2 页）。关注"为什么"而非"怎么做" -
+      详细的实现属于后续的设计和任务阶段。
+    requires: []
+
+  - id: specs
+    generates: "specs/**/*.md"
+    description: 规格 delta 文件，定义系统应做什么（WHAT）
+    template: spec.md
+    instruction: |
+      创建规格 delta 文件（specs/<capability>/spec.md），定义系统应做什么（WHAT）。
+
+      delta 格式与默认 spec-driven 完全一致（保证 msdd validate / archive 兼容）：
+
+      delta 操作（用 ## 标题）：
+      - **ADDED Requirements**: 新增能力
+      - **MODIFIED Requirements**: 行为变更 - 必须包含完整更新后的内容
+      - **REMOVED Requirements**: 废弃功能 - 必须包含 **Reason** 和 **Migration**
+      - **RENAMED Requirements**: 仅改名 - 使用 FROM:/TO: 格式
+
+      格式要求：
+      - 每条需求：`### Requirement: <name>` + 描述
+      - 规范性表述用 SHALL/MUST（避免 should/may）
+      - 每个场景：`#### Scenario: <name>`，WHEN/THEN 格式
+      - **关键**：场景标题必须恰好 4 个 #（####），3 个 # 或列表会静默校验失败
+      - 每条需求至少一个场景
+
+      新增 capability 的 delta 以 `## Purpose` 开头（一两句话，10+ 字符，说明该能力用途）。
+      已有 capability 的 delta 不要加 `## Purpose`。
+
+      MODIFIED 流程：从 msdd/specs/<capability>/spec.md 复制完整需求块到
+      ## MODIFIED Requirements 下再修改；标题文本必须与原文一致（空白不敏感）。
+      只新增关注点而不改既有行为时，用 ADDED 而非 MODIFIED。
+
+      按 proposal.md 的 Capabilities 章节逐个创建 specs/<capability>/spec.md。
+    requires:
+      - proposal
+
+  - id: design
+    generates: design.md
+    description: 设计文档，说明如何实现变更
+    template: design.md
+    instruction: |
+      创建设计文档，说明如何实现这个变更。
+
+      Sections:
+      - **Context**: 当前状态和约束，解释设计方法的背景。引用 proposal 作为动机。
+      - **Goals / Non-Goals**: 设计要达成的目标和明确排除的内容。不要重述 proposal 的范围 - 只添加设计级别的边界。
+      - **Decisions**: 关键技术选择及理由（为什么选择 X 而不是 Y？）。包含每个决策考虑的替代方案。
+      - **Risks / Trade-offs**: 已知限制、可能出现的问题。格式：[Risk] 的 Mitigation
+      - **Migration Plan**: 部署步骤、回滚策略（如适用）
+      - **Open Questions**: 可以安全延后回答的问题，不会改变方法或任务分解。如无则省略。
+
+      Open Questions 是真正可延后的问题，不是你跳过的决策。如果问题会改变方法或任务分解，
+      请现在就解决它 - 询问用户而不是猜测。
+
+      关注架构和方法，而非逐行实现。
+      引用 proposal 作为动机和需求 - 如果某个章节只是重述它们，指向它们即可。
+
+      好的设计文档解释技术决策背后的"为什么"。
+    requires:
+      - proposal
+      - specs
+
+  - id: tasks
+    generates: tasks.md
+    description: 实现任务清单
+    template: tasks.md
+    instruction: |
+      创建任务清单，分解实现工作。
+
+      在编写任务前，检查 design.md 的 Open Questions。如果有问题会影响构建内容，
+      请先与用户解决 - 不要将未说明的假设写入任务清单。
+
+      **重要：严格按照以下模板执行。** apply 阶段解析复选框格式来跟踪进度。
+      不使用 `- [ ]` 的任务不会被跟踪。
+
+      指南：
+      - 将相关任务分组在 ## 编号标题下
+      - 每个任务必须是复选框：`- [ ] X.Y 任务描述`
+      - 任务应该足够小，可以在一次会话中完成
+      - 按依赖关系排序（什么必须先做？）
+      - 必须包含「测试执行」任务组：每个测试用例组一个复选框任务
+        （如 `- [ ] N.1 执行 <模块> 用例 TC-xx-01 ~ TC-xx-09 并记录结果`）
+
+      示例：
+      ```
+      ## 1. 设置
+
+      - [ ] 1.1 创建新模块结构
+      - [ ] 1.2 添加依赖到 package.json
+
+      ## 2. 核心实现
+
+      - [ ] 2.1 实现数据导出功能
+      - [ ] 2.2 添加 CSV 格式化工具
+      ```
+
+      引用 design.md 了解需要构建的内容和方式。
+      每个任务应该是可验证的 - 你知道它何时完成。
+    requires:
+      - design
+
+  - id: test-design
+    generates: test-design.md
+    description: 测试用例设计（测试策略与维度设计，不含具体用例内容）
+    template: test-design.md
+    instruction: |
+      创建测试用例设计文档（test-design.md）：基于 proposal.md、
+      specs/ 和 design.md，规划怎么测。本文件不写具体用例内容——
+      具体用例（步骤、期望值）由 tasks.md 的测试任务承载。
+
+      硬性边界：
+      - 禁止写具体用例：不写测试步骤、期望结果、用例表格
+      - 测试点设计到"测什么、从哪个角度"即可，不展开执行步骤
+      - 以 specs/ 的 Requirement 和 Scenario、design.md 的验收要点为依据
+
+      章节说明：
+      - **测试范围**: 本次需求要测的功能/接口清单（对照 proposal 的 What Changes 的 specs/
+        capability），并明确不测什么
+      - **测试维度**: 功能/接口/异常/边界/安全/性能等维度划分；每个维度列出测试点设计
+        （只到测试点，不到用例），测试点需标注关联的 Requirement
+      - **环境与数据**: 测试环境、账号、数据准备要求；无特殊要求写"无"
+      - **风险**: 测试盲区、外部依赖、联测依赖等；无则删除本章节
+    requires:
+      - specs
+      - design
+
+apply:
+  requires: [tasks]
+  tracks: tasks.md
+  instruction: |
+    读取上下文文件，处理待办任务，完成后标记。
+    遇到阻碍或需要澄清时暂停。
